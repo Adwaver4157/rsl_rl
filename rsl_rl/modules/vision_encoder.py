@@ -76,7 +76,7 @@ if __name__ == '__main__':
         #                      std=[0.229, 0.224, 0.225])  # 必要に応じて正規化
     ])
     # 画像に変換を適用
-    dummy_input = np.randn(3, 640, 480)
+    dummy_input = np.random.randn(3, 640, 480)
     img_tensor = transform(dummy_input)  # 形状: (3, 128, 128)
 
     # バッチ次元を追加：モデルの入力は通常 (B, C, H, W) となるので
