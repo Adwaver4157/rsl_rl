@@ -86,10 +86,12 @@ class OnPolicyRunner:
             self.writer = SummaryWriter(log_dir=self.log_dir, flush_secs=10)
         if init_at_random_ep_len:
             self.env.episode_length_buf = torch.randint_like(self.env.episode_length_buf, high=int(self.env.max_episode_length))
-        obs = self.env.get_observations()
+        obs, img_obs = self.env.get_observations()
         privileged_obs = self.env.get_privileged_observations()
         critic_obs = privileged_obs if privileged_obs is not None else obs
+        critic_img_obs = img_obs
         obs, critic_obs = obs.to(self.device), critic_obs.to(self.device)
+        img_obs, critic_img_obs = img_obs.to(self.device), critic_img_obs.to(self.device)
         self.alg.actor_critic.train() # switch to train mode (for dropout for example)
 
         ep_infos = []
@@ -105,9 +107,11 @@ class OnPolicyRunner:
             with torch.inference_mode():
                 for i in range(self.num_steps_per_env):
                     actions = self.alg.act(obs, critic_obs)
-                    obs, privileged_obs, rewards, dones, infos = self.env.step(actions)
+                    obs, privileged_obs, rewards, dones, infos, img_obs = self.env.step(actions)
                     critic_obs = privileged_obs if privileged_obs is not None else obs
+                    critic_img_obs = img_obs
                     obs, critic_obs, rewards, dones = obs.to(self.device), critic_obs.to(self.device), rewards.to(self.device), dones.to(self.device)
+                    img_obs, critic_img_obs = img_obs.to(self.device), critic_img_obs.to(self.device)
                     self.alg.process_env_step(rewards, dones, infos)
                     
                     if self.log_dir is not None:
@@ -127,7 +131,7 @@ class OnPolicyRunner:
 
                 # Learning step
                 start = stop
-                self.alg.compute_returns(critic_obs)
+                self.alg.compute_returns((critic_obs, critic_img_obs))
             
             mean_value_loss, mean_surrogate_loss = self.alg.update()
             stop = time.time()

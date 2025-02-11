@@ -35,6 +35,8 @@ import torch.nn as nn
 from torch.distributions import Normal
 from torch.nn.modules import rnn
 
+from rsl_rl.modules.vision_encoder import VisionEncoder
+
 class ActorCritic(nn.Module):
     is_recurrent = False
     def __init__(self,  num_actor_obs,
@@ -77,6 +79,7 @@ class ActorCritic(nn.Module):
                 critic_layers.append(nn.Linear(critic_hidden_dims[l], critic_hidden_dims[l + 1]))
                 critic_layers.append(activation)
         self.critic = nn.Sequential(*critic_layers)
+        self.img_critics = VisionEncoder(input_channels=4, feature_dim=128)
 
         print(f"Actor MLP: {self.actor}")
         print(f"Critic MLP: {self.critic}")
@@ -133,7 +136,8 @@ class ActorCritic(nn.Module):
 
     def evaluate(self, critic_observations, **kwargs):
         value = self.critic(critic_observations)
-        return value
+        img_value = self.img_critics(critic_observations)
+        return value + img_value
 
 def get_activation(act_name):
     if act_name == "elu":
