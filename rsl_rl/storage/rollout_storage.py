@@ -59,7 +59,11 @@ class RolloutStorage:
         self.actions_shape = actions_shape
 
         # Core
-        self.observations = torch.zeros(num_transitions_per_env, num_envs, *obs_shape, device=self.device)
+        # self.observations = torch.zeros(num_transitions_per_env, num_envs, *obs_shape, device=self.device)
+        self.observations = {
+            "vector": torch.zeros(num_transitions_per_env, num_envs, *obs_shape[0], device=self.device),
+            "image": torch.zeros(num_transitions_per_env, num_envs, *obs_shape[1], device=self.device),
+        }
         if privileged_obs_shape[0] is not None:
             self.privileged_observations = torch.zeros(num_transitions_per_env, num_envs, *privileged_obs_shape, device=self.device)
         else:
@@ -88,7 +92,8 @@ class RolloutStorage:
     def add_transitions(self, transition: Transition):
         if self.step >= self.num_transitions_per_env:
             raise AssertionError("Rollout buffer overflow")
-        self.observations[self.step].copy_(transition.observations)
+        self.observations["obs"][self.step].copy_(transition.observations[0])
+        self.observations["img_obs"][self.step].copy_(transition.observations[1])
         if self.privileged_observations is not None: self.privileged_observations[self.step].copy_(transition.critic_observations)
         self.actions[self.step].copy_(transition.actions)
         self.rewards[self.step].copy_(transition.rewards.view(-1, 1))
