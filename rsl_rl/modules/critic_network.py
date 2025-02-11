@@ -9,17 +9,21 @@ class CriticNetwork(nn.Module):
         self.cnn = nn.Sequential(
             nn.Conv2d(image_channels, 32, kernel_size=3, stride=1, padding=1),
             activation,
-            nn.MaxPool2d(2, 2),  # Downsample
+            nn.MaxPool2d(2, 2),  # Downsample: 128x128 → 64x64
             nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
             activation,
-            nn.MaxPool2d(2, 2),  # Downsample
+            nn.MaxPool2d(2, 2),  # Downsample: 64x64 → 32x32
             nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
             activation,
-            nn.AdaptiveAvgPool2d((4, 4))  # Fixed-size output
+            nn.MaxPool2d(2, 2),  # Downsample: 32x32 → 16x16
+            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
+            activation,
+            nn.MaxPool2d(2, 2),  # Downsample: 16x16 → 8x8
+            nn.AdaptiveAvgPool2d((8, 8))  # Fixed-size output (8x8)
         )
 
         # CNN の出力サイズ
-        self.cnn_output_dim = 128 * 4 * 4  # AdaptiveAvgPool2dの出力形状に依存
+        self.cnn_output_dim = 128 * 8 * 8  # 128ch × 8 × 8 = 8192
 
         # 1次元の観測の処理 (MLP)
         self.mlp = nn.Sequential(
