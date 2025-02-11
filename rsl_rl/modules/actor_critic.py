@@ -35,7 +35,8 @@ import torch.nn as nn
 from torch.distributions import Normal
 from torch.nn.modules import rnn
 
-from rsl_rl.modules.vision_encoder import VisionEncoder
+from rsl_rl.modules.actor_network import ActorNetwork
+from rsl_rl.modules.critic_network import CriticNetwork
 
 class ActorCritic(nn.Module):
     is_recurrent = False
@@ -57,29 +58,30 @@ class ActorCritic(nn.Module):
         mlp_input_dim_c = num_critic_obs
 
         # Policy
-        actor_layers = []
-        actor_layers.append(nn.Linear(mlp_input_dim_a, actor_hidden_dims[0]))
-        actor_layers.append(activation)
-        for l in range(len(actor_hidden_dims)):
-            if l == len(actor_hidden_dims) - 1:
-                actor_layers.append(nn.Linear(actor_hidden_dims[l], num_actions))
-            else:
-                actor_layers.append(nn.Linear(actor_hidden_dims[l], actor_hidden_dims[l + 1]))
-                actor_layers.append(activation)
-        self.actor = nn.Sequential(*actor_layers)
+        # actor_layers = []
+        # actor_layers.append(nn.Linear(mlp_input_dim_a, actor_hidden_dims[0]))
+        # actor_layers.append(activation)
+        # for l in range(len(actor_hidden_dims)):
+        #     if l == len(actor_hidden_dims) - 1:
+        #         actor_layers.append(nn.Linear(actor_hidden_dims[l], num_actions))
+        #     else:
+        #         actor_layers.append(nn.Linear(actor_hidden_dims[l], actor_hidden_dims[l + 1]))
+        #         actor_layers.append(activation)
+        # self.actor = nn.Sequential(*actor_layers)
+        self.actor = ActorNetwork(mlp_input_dim_a, 4, actor_hidden_dims, num_actions)
 
         # Value function
-        critic_layers = []
-        critic_layers.append(nn.Linear(mlp_input_dim_c, critic_hidden_dims[0]))
-        critic_layers.append(activation)
-        for l in range(len(critic_hidden_dims)):
-            if l == len(critic_hidden_dims) - 1:
-                critic_layers.append(nn.Linear(critic_hidden_dims[l], 1))
-            else:
-                critic_layers.append(nn.Linear(critic_hidden_dims[l], critic_hidden_dims[l + 1]))
-                critic_layers.append(activation)
-        self.critic = nn.Sequential(*critic_layers)
-        self.img_critics = VisionEncoder(input_channels=4, feature_dim=128)
+        # critic_layers = []
+        # critic_layers.append(nn.Linear(mlp_input_dim_c, critic_hidden_dims[0]))
+        # critic_layers.append(activation)
+        # for l in range(len(critic_hidden_dims)):
+        #     if l == len(critic_hidden_dims) - 1:
+        #         critic_layers.append(nn.Linear(critic_hidden_dims[l], 1))
+        #     else:
+        #         critic_layers.append(nn.Linear(critic_hidden_dims[l], critic_hidden_dims[l + 1]))
+        #         critic_layers.append(activation)
+        # self.critic = nn.Sequential(*critic_layers)
+        self.critic = CriticNetwork(mlp_input_dim_c, 4, critic_hidden_dims)
 
         print(f"Actor MLP: {self.actor}")
         print(f"Critic MLP: {self.critic}")
@@ -120,7 +122,7 @@ class ActorCritic(nn.Module):
         return self.distribution.entropy().sum(dim=-1)
 
     def update_distribution(self, observations):
-        mean = self.actor(observations)
+        mean = self.actor(*observations)
         self.distribution = Normal(mean, mean*0. + self.std)
 
     def act(self, observations, **kwargs):
@@ -131,13 +133,12 @@ class ActorCritic(nn.Module):
         return self.distribution.log_prob(actions).sum(dim=-1)
 
     def act_inference(self, observations):
-        actions_mean = self.actor(observations)
+        actions_mean = self.actor(*observations)
         return actions_mean
 
     def evaluate(self, critic_observations, **kwargs):
-        value = self.critic(critic_observations)
-        img_value = self.img_critics(critic_observations)
-        return value + img_value
+        value = self.critic(*critic_observations)
+        return value
 
 def get_activation(act_name):
     if act_name == "elu":
