@@ -41,6 +41,8 @@ class ActorNetwork(nn.Module):
 
     def forward(self, mlp_obs, image_obs):
         # 画像の特徴抽出
+        print("before image_features.shape", image_obs.shape)
+        print("before mlp_features.shape", mlp_obs.shape)
         image_features = self.cnn(image_obs)
         image_features = image_features.view(image_features.size(0), -1)  # Flatten
 
@@ -48,6 +50,8 @@ class ActorNetwork(nn.Module):
         mlp_features = self.mlp(mlp_obs)
 
         # 結合
+        print("after image_features.shape", image_features.shape)
+        print("after mlp_features.shape", mlp_features.shape)
         concat_features = torch.cat((mlp_features, image_features), dim=1)
 
         # 行動の予測

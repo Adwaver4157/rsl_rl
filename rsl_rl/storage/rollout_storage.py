@@ -154,11 +154,13 @@ class RolloutStorage:
         mini_batch_size = batch_size // num_mini_batches
         indices = torch.randperm(num_mini_batches*mini_batch_size, requires_grad=False, device=self.device)
 
-        observations = self.observations.flatten(0, 1)
-        if self.privileged_observations is not None:
-            critic_observations = self.privileged_observations.flatten(0, 1)
-        else:
-            critic_observations = observations
+        # observations = self.observations.flatten(0, 1)
+        obs = self.observations["obs"].flatten(0, 1)
+        img_obs = self.observations["img_obs"].flatten(0, 1)
+        # if self.privileged_observations is not None:
+        #     critic_observations = self.privileged_observations.flatten(0, 1)
+        # else:
+        #     critic_observations = observations
 
         actions = self.actions.flatten(0, 1)
         values = self.values.flatten(0, 1)
@@ -175,8 +177,8 @@ class RolloutStorage:
                 end = (i+1)*mini_batch_size
                 batch_idx = indices[start:end]
 
-                obs_batch = observations[batch_idx]
-                critic_observations_batch = critic_observations[batch_idx]
+                obs_batch = (obs[batch_idx], img_obs[batch_idx])
+                critic_observations_batch = (obs[batch_idx], img_obs[batch_idx])
                 actions_batch = actions[batch_idx]
                 target_values_batch = values[batch_idx]
                 returns_batch = returns[batch_idx]
