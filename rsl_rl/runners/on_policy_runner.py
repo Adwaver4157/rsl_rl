@@ -152,11 +152,11 @@ class OnPolicyRunner:
         self.current_learning_iteration += num_learning_iterations
         self.save(os.path.join(self.log_dir, 'model_{}.pt'.format(self.current_learning_iteration)))
         if self.vis:
-            self.env.fixed_camera.stop_recording(save_to_filename='logs/videos/video_others.mp4', fps=60)
-            self.env.follower_camera.stop_recording(save_to_filename='logs/videos/follow_video_others.mp4', fps=60)
-            # env.head_camera.stop_recording(save_to_filename='logs/videos/head_video_others.mp4', fps=60)
+            self.env.fixed_camera.stop_recording(save_to_filename='logs/videos/video_train.mp4', fps=60)
+            self.env.follower_camera.stop_recording(save_to_filename='logs/videos/follow_video_train.mp4', fps=60)
+            # env.head_camera.stop_recording(save_to_filename='logs/videos/head_video_train.mp4', fps=60)
             for i in range(len(self.env.head_cameras)):
-                self.env.head_cameras[i].stop_recording(save_to_filename=f'logs/videos/head_video_others_{i}.mp4', fps=60)
+                self.env.head_cameras[i].stop_recording(save_to_filename=f'logs/videos/head_video_train_{i}.mp4', fps=60)
 
     def log(self, locs, width=80, pad=35):
         self.tot_timesteps += self.num_steps_per_env * self.env.num_envs
