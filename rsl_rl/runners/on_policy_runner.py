@@ -47,12 +47,14 @@ class OnPolicyRunner:
                  env: VecEnv,
                  train_cfg,
                  log_dir=None,
-                 device='cpu'):
+                 device='cpu',
+                 vis=False):
 
         self.cfg=train_cfg["runner"]
         self.alg_cfg = train_cfg["algorithm"]
         self.policy_cfg = train_cfg["policy"]
         self.device = device
+        self.vis = vis
         self.env = env
         if self.env.num_privileged_obs is not None:
             num_critic_obs = self.env.num_privileged_obs 
@@ -101,6 +103,11 @@ class OnPolicyRunner:
         cur_episode_length = torch.zeros(self.env.num_envs, dtype=torch.float, device=self.device)
 
         tot_iter = self.current_learning_iteration + num_learning_iterations
+        if self.vis:
+            self.env.fixed_camera.start_recording()
+            self.env.follower_camera.start_recording()
+            for i in range(len(self.env.head_cameras)):
+                self.env.head_cameras[i].start_recording()
         for it in range(self.current_learning_iteration, tot_iter):
             start = time.time()
             # Rollout
@@ -144,6 +151,12 @@ class OnPolicyRunner:
         
         self.current_learning_iteration += num_learning_iterations
         self.save(os.path.join(self.log_dir, 'model_{}.pt'.format(self.current_learning_iteration)))
+        if self.vis:
+            self.env.fixed_camera.stop_recording(save_to_filename='logs/videos/video_others.mp4', fps=60)
+            self.env.follower_camera.stop_recording(save_to_filename='logs/videos/follow_video_others.mp4', fps=60)
+            # env.head_camera.stop_recording(save_to_filename='logs/videos/head_video_others.mp4', fps=60)
+            for i in range(len(self.env.head_cameras)):
+                self.env.head_cameras[i].stop_recording(save_to_filename=f'logs/videos/head_video_others_{i}.mp4', fps=60)
 
     def log(self, locs, width=80, pad=35):
         self.tot_timesteps += self.num_steps_per_env * self.env.num_envs
