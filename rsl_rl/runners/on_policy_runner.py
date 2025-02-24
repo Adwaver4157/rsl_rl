@@ -48,14 +48,13 @@ class OnPolicyRunner:
                  train_cfg,
                  log_dir=None,
                  device='cpu',
-                 vision_obs=None,
                  vis=False):
 
         self.cfg=train_cfg["runner"]
         self.alg_cfg = train_cfg["algorithm"]
         self.policy_cfg = train_cfg["policy"]
         self.device = device
-        self.vision_obs = vision_obs
+        self.vision_obs = train_cfg["policy"]["vision_obs"]
         self.vis = vis
         self.env = env
         if self.env.num_privileged_obs is not None:
@@ -73,7 +72,7 @@ class OnPolicyRunner:
         self.save_interval = self.cfg["save_interval"]
 
         # init storage and model
-        if vision_obs is None:
+        if self.vision_obs is None:
             self.alg.init_storage(self.env.num_envs, self.num_steps_per_env, [self.env.num_obs], [self.env.num_privileged_obs], [self.env.num_actions])
         else:   
             self.alg.init_storage(self.env.num_envs, self.num_steps_per_env, [self.env.num_obs, self.env.img_obs_dim], [self.env.num_privileged_obs], [self.env.num_actions])
