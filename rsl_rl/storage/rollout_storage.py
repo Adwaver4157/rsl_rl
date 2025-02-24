@@ -59,11 +59,13 @@ class RolloutStorage:
         self.actions_shape = actions_shape
 
         # Core
-        # self.observations = torch.zeros(num_transitions_per_env, num_envs, *obs_shape, device=self.device)
-        self.observations = {
-            "obs": torch.zeros(num_transitions_per_env, num_envs, obs_shape[0], device=self.device),
-            "img_obs": torch.zeros(num_transitions_per_env, num_envs, *obs_shape[1], device=self.device),
-        }
+        if len(obs_shape) == 1:
+            self.observations = torch.zeros(num_transitions_per_env, num_envs, *obs_shape, device=self.device)
+        else:
+            self.observations = {
+                "obs": torch.zeros(num_transitions_per_env, num_envs, obs_shape[0], device=self.device),
+                "img_obs": torch.zeros(num_transitions_per_env, num_envs, *obs_shape[1], device=self.device),
+            }
         if privileged_obs_shape[0] is not None:
             self.privileged_observations = torch.zeros(num_transitions_per_env, num_envs, *privileged_obs_shape, device=self.device)
         else:
@@ -92,8 +94,11 @@ class RolloutStorage:
     def add_transitions(self, transition: Transition):
         if self.step >= self.num_transitions_per_env:
             raise AssertionError("Rollout buffer overflow")
-        self.observations["obs"][self.step].copy_(transition.observations[0])
-        self.observations["img_obs"][self.step].copy_(transition.observations[1])
+        if not isinstance(self.observations, dict):
+            self.observations[self.step].copy_(transition.observations)
+        else:
+            self.observations["obs"][self.step].copy_(transition.observations[0])
+            self.observations["img_obs"][self.step].copy_(transition.observations[1])
         if self.privileged_observations is not None: self.privileged_observations[self.step].copy_(transition.critic_observations)
         self.actions[self.step].copy_(transition.actions)
         self.rewards[self.step].copy_(transition.rewards.view(-1, 1))
@@ -154,13 +159,15 @@ class RolloutStorage:
         mini_batch_size = batch_size // num_mini_batches
         indices = torch.randperm(num_mini_batches*mini_batch_size, requires_grad=False, device=self.device)
 
-        # observations = self.observations.flatten(0, 1)
-        obs = self.observations["obs"].flatten(0, 1)
-        img_obs = self.observations["img_obs"].flatten(0, 1)
-        # if self.privileged_observations is not None:
-        #     critic_observations = self.privileged_observations.flatten(0, 1)
-        # else:
-        #     critic_observations = observations
+        if not isinstance(self.observations, dict):
+            observations = self.observations.flatten(0, 1)
+            if self.privileged_observations is not None:
+                critic_observations = self.privileged_observations.flatten(0, 1)
+            else:
+                critic_observations = observations
+        else:
+            obs = self.observations["obs"].flatten(0, 1)
+            img_obs = self.observations["img_obs"].flatten(0, 1)
 
         actions = self.actions.flatten(0, 1)
         values = self.values.flatten(0, 1)
@@ -177,8 +184,12 @@ class RolloutStorage:
                 end = (i+1)*mini_batch_size
                 batch_idx = indices[start:end]
 
-                obs_batch = (obs[batch_idx], img_obs[batch_idx])
-                critic_observations_batch = (obs[batch_idx], img_obs[batch_idx])
+                if not isinstance(self.observations, dict):
+                    obs_batch = observations[batch_idx]
+                    critic_observations_batch = critic_observations[batch_idx]
+                else:
+                    obs_batch = (obs[batch_idx], img_obs[batch_idx])
+                    critic_observations_batch = (obs[batch_idx], img_obs[batch_idx])
                 actions_batch = actions[batch_idx]
                 target_values_batch = values[batch_idx]
                 returns_batch = returns[batch_idx]

@@ -48,12 +48,14 @@ class OnPolicyRunner:
                  train_cfg,
                  log_dir=None,
                  device='cpu',
+                 vision_obs=None,
                  vis=False):
 
         self.cfg=train_cfg["runner"]
         self.alg_cfg = train_cfg["algorithm"]
         self.policy_cfg = train_cfg["policy"]
         self.device = device
+        self.vision_obs = vision_obs
         self.vis = vis
         self.env = env
         if self.env.num_privileged_obs is not None:
@@ -71,7 +73,10 @@ class OnPolicyRunner:
         self.save_interval = self.cfg["save_interval"]
 
         # init storage and model
-        self.alg.init_storage(self.env.num_envs, self.num_steps_per_env, [self.env.num_obs, self.env.img_obs_dim], [self.env.num_privileged_obs], [self.env.num_actions])
+        if vision_obs is None:
+            self.alg.init_storage(self.env.num_envs, self.num_steps_per_env, [self.env.num_obs], [self.env.num_privileged_obs], [self.env.num_actions])
+        else:   
+            self.alg.init_storage(self.env.num_envs, self.num_steps_per_env, [self.env.num_obs, self.env.img_obs_dim], [self.env.num_privileged_obs], [self.env.num_actions])
 
         # Log
         self.log_dir = log_dir
@@ -113,7 +118,10 @@ class OnPolicyRunner:
             # Rollout
             with torch.inference_mode():
                 for i in range(self.num_steps_per_env):
-                    actions = self.alg.act((obs, img_obs), (critic_obs, critic_img_obs))
+                    if self.vision_obs is None:
+                        actions = self.alg.act((obs,), (critic_obs,))
+                    else:
+                        actions = self.alg.act((obs, img_obs), (critic_obs, critic_img_obs))
                     obs, privileged_obs, rewards, dones, infos, img_obs = self.env.step(actions)
                     critic_obs = privileged_obs if privileged_obs is not None else obs
                     critic_img_obs = img_obs
@@ -138,7 +146,10 @@ class OnPolicyRunner:
 
                 # Learning step
                 start = stop
-                self.alg.compute_returns((critic_obs, critic_img_obs))
+                if self.vision_obs is None:
+                    self.alg.compute_returns((obs,), (critic_obs,))
+                else:
+                    self.alg.compute_returns((critic_obs, critic_img_obs))
             
             mean_value_loss, mean_surrogate_loss = self.alg.update()
             stop = time.time()

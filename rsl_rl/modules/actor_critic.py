@@ -47,6 +47,7 @@ class ActorCritic(nn.Module):
                         critic_hidden_dims=[256, 256, 256],
                         activation='elu',
                         init_noise_std=1.0,
+                        vision_obs=None,
                         **kwargs):
         if kwargs:
             print("ActorCritic.__init__ got unexpected arguments, which will be ignored: " + str([key for key in kwargs.keys()]))
@@ -58,30 +59,50 @@ class ActorCritic(nn.Module):
         mlp_input_dim_c = num_critic_obs
 
         # Policy
-        # actor_layers = []
-        # actor_layers.append(nn.Linear(mlp_input_dim_a, actor_hidden_dims[0]))
-        # actor_layers.append(activation)
-        # for l in range(len(actor_hidden_dims)):
-        #     if l == len(actor_hidden_dims) - 1:
-        #         actor_layers.append(nn.Linear(actor_hidden_dims[l], num_actions))
-        #     else:
-        #         actor_layers.append(nn.Linear(actor_hidden_dims[l], actor_hidden_dims[l + 1]))
-        #         actor_layers.append(activation)
-        # self.actor = nn.Sequential(*actor_layers)
-        self.actor = ActorNetwork(mlp_input_dim_a, 4, actor_hidden_dims, num_actions)
+        if vision_obs is None:
+            actor_layers = []
+            actor_layers.append(nn.Linear(mlp_input_dim_a, actor_hidden_dims[0]))
+            actor_layers.append(activation)
+            for l in range(len(actor_hidden_dims)):
+                if l == len(actor_hidden_dims) - 1:
+                    actor_layers.append(nn.Linear(actor_hidden_dims[l], num_actions))
+                else:
+                    actor_layers.append(nn.Linear(actor_hidden_dims[l], actor_hidden_dims[l + 1]))
+                    actor_layers.append(activation)
+            self.actor = nn.Sequential(*actor_layers)
+        else:
+            if vision_obs == 'rgb':
+                img_obs_channel = 3
+            elif vision_obs == 'depth':
+                img_obs_channel = 1
+            elif vision_obs == 'rgbd':
+                img_obs_channel = 4
+            else:
+                img_obs_channel = 1
+            self.actor = ActorNetwork(mlp_input_dim_c, img_obs_channel, critic_hidden_dims)
 
         # Value function
-        # critic_layers = []
-        # critic_layers.append(nn.Linear(mlp_input_dim_c, critic_hidden_dims[0]))
-        # critic_layers.append(activation)
-        # for l in range(len(critic_hidden_dims)):
-        #     if l == len(critic_hidden_dims) - 1:
-        #         critic_layers.append(nn.Linear(critic_hidden_dims[l], 1))
-        #     else:
-        #         critic_layers.append(nn.Linear(critic_hidden_dims[l], critic_hidden_dims[l + 1]))
-        #         critic_layers.append(activation)
-        # self.critic = nn.Sequential(*critic_layers)
-        self.critic = CriticNetwork(mlp_input_dim_c, 4, critic_hidden_dims)
+        if vision_obs is None:
+            critic_layers = []
+            critic_layers.append(nn.Linear(mlp_input_dim_c, critic_hidden_dims[0]))
+            critic_layers.append(activation)
+            for l in range(len(critic_hidden_dims)):
+                if l == len(critic_hidden_dims) - 1:
+                    critic_layers.append(nn.Linear(critic_hidden_dims[l], 1))
+                else:
+                    critic_layers.append(nn.Linear(critic_hidden_dims[l], critic_hidden_dims[l + 1]))
+                    critic_layers.append(activation)
+            self.critic = nn.Sequential(*critic_layers)
+        else:
+            if vision_obs == 'rgb':
+                img_obs_channel = 3
+            elif vision_obs == 'depth':
+                img_obs_channel = 1
+            elif vision_obs == 'rgbd':
+                img_obs_channel = 4
+            else:
+                img_obs_channel = 1
+            self.critic = CriticNetwork(mlp_input_dim_c, img_obs_channel, critic_hidden_dims)
 
         print(f"Actor MLP: {self.actor}")
         print(f"Critic MLP: {self.critic}")
