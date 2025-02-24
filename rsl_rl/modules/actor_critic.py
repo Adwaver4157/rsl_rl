@@ -79,7 +79,7 @@ class ActorCritic(nn.Module):
                 img_obs_channel = 4
             else:
                 img_obs_channel = 1
-            self.actor = ActorNetwork(mlp_input_dim_c, img_obs_channel, critic_hidden_dims)
+            self.actor = ActorNetwork(mlp_input_dim_a, img_obs_channel, actor_hidden_dims, num_actions)
 
         # Value function
         if vision_obs is None:
@@ -102,7 +102,7 @@ class ActorCritic(nn.Module):
                 img_obs_channel = 4
             else:
                 img_obs_channel = 1
-            self.critic = CriticNetwork(mlp_input_dim_c, img_obs_channel, critic_hidden_dims)
+            self.critic = CriticNetwork(mlp_input_dim_c, img_obs_channel, critic_hidden_dims, num_actions)
 
         print(f"Actor MLP: {self.actor}")
         print(f"Critic MLP: {self.critic}")
