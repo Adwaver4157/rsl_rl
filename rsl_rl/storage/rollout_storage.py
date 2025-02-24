@@ -185,8 +185,8 @@ class RolloutStorage:
                 batch_idx = indices[start:end]
 
                 if not isinstance(self.observations, dict):
-                    obs_batch = observations[batch_idx]
-                    critic_observations_batch = critic_observations[batch_idx]
+                    obs_batch = (observations[batch_idx], )
+                    critic_observations_batch = (critic_observations[batch_idx], )
                 else:
                     obs_batch = (obs[batch_idx], img_obs[batch_idx])
                     critic_observations_batch = (obs[batch_idx], img_obs[batch_idx])
