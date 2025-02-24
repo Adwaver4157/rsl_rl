@@ -95,7 +95,7 @@ class RolloutStorage:
         if self.step >= self.num_transitions_per_env:
             raise AssertionError("Rollout buffer overflow")
         if not isinstance(self.observations, dict):
-            self.observations[self.step].copy_(transition.observations)
+            self.observations[self.step].copy_(transition.observations[0])
         else:
             self.observations["obs"][self.step].copy_(transition.observations[0])
             self.observations["img_obs"][self.step].copy_(transition.observations[1])

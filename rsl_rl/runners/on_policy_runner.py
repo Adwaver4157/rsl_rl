@@ -119,7 +119,7 @@ class OnPolicyRunner:
             with torch.inference_mode():
                 for i in range(self.num_steps_per_env):
                     if self.vision_obs is None:
-                        actions = self.alg.act(obs, critic_obs)
+                        actions = self.alg.act((obs, ), (critic_obs, ))
                     else:
                         actions = self.alg.act((obs, img_obs), (critic_obs, critic_img_obs))
                     obs, privileged_obs, rewards, dones, infos, img_obs = self.env.step(actions)
