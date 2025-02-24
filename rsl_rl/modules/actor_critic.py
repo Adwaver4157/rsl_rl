@@ -102,7 +102,7 @@ class ActorCritic(nn.Module):
                 img_obs_channel = 4
             else:
                 img_obs_channel = 1
-            self.critic = CriticNetwork(mlp_input_dim_c, img_obs_channel, critic_hidden_dims, num_actions)
+            self.critic = CriticNetwork(mlp_input_dim_c, img_obs_channel, critic_hidden_dims)
 
         print(f"Actor MLP: {self.actor}")
         print(f"Critic MLP: {self.critic}")
