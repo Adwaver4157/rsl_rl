@@ -100,7 +100,13 @@ class ActorNetwork(nn.Module):
                 if "command_refiner" not in name:
                     param.requires_grad = False
 
-    def forward(self, mlp_obs, image_obs):
+    def forward(self, obs):
+        if len(obs) == 2:
+            mlp_obs, image_obs = obs
+        else:
+            mlp_obs = obs
+            image_obs = None
+
         if self.options is not None and "command_refiner" in self.options:
             # command refiner 用の特徴抽出
             command_refiner_input_image_features = self.command_refiner_cnn(image_obs)
