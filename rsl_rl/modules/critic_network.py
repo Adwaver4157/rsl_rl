@@ -120,6 +120,7 @@ class CriticNetwork(nn.Module):
             # mlp_obs の7,8,9番目（Pythonではインデックス6～8）を refined_commands で置換
             # print(f"before command_refiner: {mlp_obs[0, 6:9]}")
             # print(f"before command_refiner: {mlp_obs[0, :]}")
+            mlp_obs = mlp_obs.clone()
             mlp_obs[:, 6:9] = refined_commands
             # print(f"after command_refiner: {mlp_obs[0, 6:9]}")
             # print(f"after command_refiner: {mlp_obs[0, :]}")
