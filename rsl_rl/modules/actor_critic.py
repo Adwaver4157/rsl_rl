@@ -47,7 +47,9 @@ class ActorCritic(nn.Module):
                         critic_hidden_dims=[256, 256, 256],
                         activation='elu',
                         init_noise_std=1.0,
-                        vision_obs=None,
+                        vision_obs=None, # what modality env has
+                        use_vis=True, # which actor_critic use imgs
+                        options=None,
                         **kwargs):
         if kwargs:
             print("ActorCritic.__init__ got unexpected arguments, which will be ignored: " + str([key for key in kwargs.keys()]))
@@ -58,54 +60,23 @@ class ActorCritic(nn.Module):
         mlp_input_dim_a = num_actor_obs
         mlp_input_dim_c = num_critic_obs
 
-        # Policy
-        if vision_obs is None:
-            actor_layers = []
-            actor_layers.append(nn.Linear(mlp_input_dim_a, actor_hidden_dims[0]))
-            actor_layers.append(activation)
-            for l in range(len(actor_hidden_dims)):
-                if l == len(actor_hidden_dims) - 1:
-                    actor_layers.append(nn.Linear(actor_hidden_dims[l], num_actions))
-                else:
-                    actor_layers.append(nn.Linear(actor_hidden_dims[l], actor_hidden_dims[l + 1]))
-                    actor_layers.append(activation)
-            self.actor = nn.Sequential(*actor_layers)
+        # Determine image channel: None for pure MLP-only, else appropriate channels (including command_refiner)
+        if vision_obs == 'rgb':
+            img_obs_channel = 3
+        elif vision_obs == 'depth':
+            img_obs_channel = 1
+        elif vision_obs == 'rgbd':
+            img_obs_channel = 4
         else:
-            if vision_obs == 'rgb':
-                img_obs_channel = 3
-            elif vision_obs == 'depth':
-                img_obs_channel = 1
-            elif vision_obs == 'rgbd':
-                img_obs_channel = 4
-            else:
-                img_obs_channel = 1
-            self.actor = ActorNetwork(mlp_input_dim_a, img_obs_channel, actor_hidden_dims, num_actions)
+            # default RGB for command_refiner when vision_obs is None
+            img_obs_channel = 1
 
-        # Value function
-        if vision_obs is None:
-            critic_layers = []
-            critic_layers.append(nn.Linear(mlp_input_dim_c, critic_hidden_dims[0]))
-            critic_layers.append(activation)
-            for l in range(len(critic_hidden_dims)):
-                if l == len(critic_hidden_dims) - 1:
-                    critic_layers.append(nn.Linear(critic_hidden_dims[l], 1))
-                else:
-                    critic_layers.append(nn.Linear(critic_hidden_dims[l], critic_hidden_dims[l + 1]))
-                    critic_layers.append(activation)
-            self.critic = nn.Sequential(*critic_layers)
-        else:
-            if vision_obs == 'rgb':
-                img_obs_channel = 3
-            elif vision_obs == 'depth':
-                img_obs_channel = 1
-            elif vision_obs == 'rgbd':
-                img_obs_channel = 4
-            else:
-                img_obs_channel = 1
-            self.critic = CriticNetwork(mlp_input_dim_c, img_obs_channel, critic_hidden_dims)
+        # Create actor and critic networks; ActorNetwork/CriticNetwork handle MLP-only when img_obs_channel is None
+        self.actor = ActorNetwork(mlp_input_dim_a, img_obs_channel, actor_hidden_dims, num_actions, activation=activation, use_vis=use_vis, options=options)
+        self.critic = CriticNetwork(mlp_input_dim_c, img_obs_channel, critic_hidden_dims, activation=activation, use_vis=use_vis, options=options)
 
-        print(f"Actor MLP: {self.actor}")
-        print(f"Critic MLP: {self.critic}")
+        print(f"Actor net: {self.actor}")
+        print(f"Critic net: {self.critic}")
 
         # Action noise
         self.std = nn.Parameter(init_noise_std * torch.ones(num_actions))
@@ -179,3 +150,59 @@ def get_activation(act_name):
     else:
         print("invalid activation function!")
         return None
+
+if __name__ == "__main__":
+    import torch
+    # Example settings
+    mlp_dim = 10
+    num_actions = 4
+    actor_hidden_dims = [128, 256, 128]
+    critic_hidden_dims = [128, 256, 128]
+
+    # Pure MLP-only example
+    ac_mlp = ActorCritic(mlp_dim, mlp_dim, num_actions,
+                         actor_hidden_dims=actor_hidden_dims,
+                         critic_hidden_dims=critic_hidden_dims,
+                         vision_obs=None,
+                         use_vis=False,
+                         options=None)
+    mlp_obs = torch.randn(5, mlp_dim)
+    act_mlp = ac_mlp.act((mlp_obs, None))
+    val_mlp = ac_mlp.evaluate((mlp_obs, None))
+    print("MLP-only act:", act_mlp.shape, "val:", val_mlp.shape)
+
+    # Vision example
+    ac_vis = ActorCritic(mlp_dim, mlp_dim, num_actions,
+                         actor_hidden_dims=actor_hidden_dims,
+                         critic_hidden_dims=critic_hidden_dims,
+                         vision_obs='depth',
+                         use_vis=True,
+                         options=None)
+    img_obs = torch.randn(5, 1, 64, 64)
+    act_vis = ac_vis.act((mlp_obs, img_obs))
+    val_vis = ac_vis.evaluate((mlp_obs, img_obs))
+    print("Vision act:", act_vis.shape, "val:", val_vis.shape)
+
+    # Command refiner (no vision) example
+    ac_ref = ActorCritic(mlp_dim, mlp_dim, num_actions,
+                         actor_hidden_dims=actor_hidden_dims,
+                         critic_hidden_dims=critic_hidden_dims,
+                         vision_obs="depth",
+                         use_vis=False,
+                         options='command_refiner_fixed')
+    img_obs = torch.randn(5, 1, 64, 64)
+    act_ref = ac_ref.act((mlp_obs, img_obs))
+    val_ref = ac_ref.evaluate((mlp_obs, img_obs))
+    print("CommandRefiner act:", act_ref.shape, "val:", val_ref.shape)
+
+    # Command refiner (vision) example
+    ac_ref = ActorCritic(mlp_dim, mlp_dim, num_actions,
+                         actor_hidden_dims=actor_hidden_dims,
+                         critic_hidden_dims=critic_hidden_dims,
+                         vision_obs="depth",
+                         use_vis=True,
+                         options='command_refiner_fixed')
+    img_obs = torch.randn(5, 1, 64, 64)
+    act_ref = ac_ref.act((mlp_obs, img_obs))
+    val_ref = ac_ref.evaluate((mlp_obs, img_obs))
+    print("CommandRefiner vision act:", act_ref.shape, "val:", val_ref.shape)

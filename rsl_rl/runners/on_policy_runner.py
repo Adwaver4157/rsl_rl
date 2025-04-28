@@ -55,6 +55,7 @@ class OnPolicyRunner:
         self.policy_cfg = train_cfg["policy"]
         self.device = device
         self.vision_obs = train_cfg["policy"]["vision_obs"]
+        self.options = train_cfg["policy"]["options"]
         self.vis = vis
         self.env = env
         if self.env.num_privileged_obs is not None:
@@ -118,16 +119,25 @@ class OnPolicyRunner:
             # Rollout
             with torch.inference_mode():
                 for i in range(self.num_steps_per_env):
+                    start_time = time.time()
                     if self.vision_obs is None:
                         actions = self.alg.act((obs, ), (critic_obs, ))
                     else:
                         actions = self.alg.act((obs, img_obs), (critic_obs, critic_img_obs))
+                    end_time = time.time()
+                    # print(f"Time for act: {end_time - start_time}")
+                    start_time = time.time()
                     obs, privileged_obs, rewards, dones, infos, img_obs = self.env.step(actions)
                     critic_obs = privileged_obs if privileged_obs is not None else obs
                     critic_img_obs = img_obs
                     obs, critic_obs, rewards, dones = obs.to(self.device), critic_obs.to(self.device), rewards.to(self.device), dones.to(self.device)
                     img_obs, critic_img_obs = img_obs.to(self.device), critic_img_obs.to(self.device)
+                    end_time = time.time()
+                    # print(f"Time for step: {end_time - start_time}")
+                    start_time = time.time()
                     self.alg.process_env_step(rewards, dones, infos)
+                    end_time = time.time()
+                    # print(f"Time for process_env_step: {end_time - start_time}")
                     
                     if self.log_dir is not None:
                         # Book keeping
@@ -253,6 +263,29 @@ class OnPolicyRunner:
         if load_optimizer:
             self.alg.optimizer.load_state_dict(loaded_dict['optimizer_state_dict'])
         self.current_learning_iteration = loaded_dict['iter']
+        return loaded_dict['infos']
+    
+    def load_partial_state_dict(self, path, load_optimizer=True):
+        # loaded_dict = torch.load(path)
+        # self.alg.actor_critic.load_state_dict(loaded_dict['model_state_dict'])
+        # if load_optimizer:
+        #     self.alg.optimizer.load_state_dict(loaded_dict['optimizer_state_dict'])
+        # self.current_learning_iteration = loaded_dict['iter']
+        loaded_dict = torch.load(path)
+        if 'state_dict' in loaded_dict:
+            loaded_dict = loaded_dict['state_dict']
+        
+        model_dict = self.alg.actor_critic.state_dict()
+        load_dict = {}
+        
+        for key, value in loaded_dict.items():
+            if key in model_dict:
+                if model_dict[key].shape == value.shape:
+                    load_dict[key] = value
+        
+        # 部分更新：既存のモデルのstate_dictを更新してからロード
+        model_dict.update(load_dict)
+        self.alg.actor_critic.load_state_dict(model_dict)
         return loaded_dict['infos']
 
     def get_inference_policy(self, device=None):
