@@ -98,6 +98,9 @@ class CriticNetwork(nn.Module):
                 if "command_refiner" not in name:
                     param.requires_grad = False
 
+        self.ranges = torch.tensor([[0.1, 0.5],[-0.1, 0.1],[-0.78, 0.78]]).to("cuda:0")
+        self.sigmoid = nn.Sigmoid()  # Sigmoid関数
+
     def forward(self, obs):
         if len(obs) == 2:
             mlp_obs = obs[0]
@@ -117,12 +120,18 @@ class CriticNetwork(nn.Module):
             concat_refiner_features = torch.cat((refined_mlp_features, refined_image_features), dim=1)
             refined_commands = self.command_refiner_head(concat_refiner_features)  # 出力は (x, y, rotation)
 
+            # Sigmoidで[0, 1]にスケーリング
+            refined_commands_sigmoid = self.sigmoid(refined_commands)
+            # 各次元ごとにスケーリング範囲を適用
+            min_vals, max_vals = self.ranges[:, 0], self.ranges[:, 1]
+            # [0, 1] -> [min_vals, max_vals] にスケーリング
+            refined_commands_scaled = min_vals + (max_vals - min_vals) * refined_commands_sigmoid
             # mlp_obs の7,8,9番目（Pythonではインデックス6～8）を refined_commands で置換
-            # print(f"before command_refiner: {mlp_obs[0, 6:9]}")
+            # print(f"before command_refiner (critic): {mlp_obs[0, 6:9]}")
             # print(f"before command_refiner: {mlp_obs[0, :]}")
             mlp_obs = mlp_obs.clone()
-            mlp_obs[:, 6:9] = refined_commands
-            # print(f"after command_refiner: {mlp_obs[0, 6:9]}")
+            mlp_obs[:, 6:9] = refined_commands_sigmoid
+            # print(f"after command_refiner (critic): {mlp_obs[0, 6:9]}")
             # print(f"after command_refiner: {mlp_obs[0, :]}")
 
         if self.is_mlp:
